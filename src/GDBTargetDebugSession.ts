@@ -93,7 +93,13 @@ export interface ImageFileAndOffset {
 
 export interface ImageAndSymbolsArguments {
     symbolFilesAndOffset?: SymbolFileAndOffset[];
-    imageFilesAndOffset?: ImageFileAndOffset[]
+    imageFilesAndOffset?: ImageFileAndOffset[];
+    // Deprecated, use symbolFilesAndOffset instead. If specified, a symbol file to load at the given (optional) offset
+    symbolFileName?: string;
+    symbolOffset?: string;
+    // Deprecated, use imageFilesAndOffset instead. If specified, an image file to load at the given (optional) offset
+    imageFileName?: string;
+    imageOffset?: string;
 }
 
 export interface TargetAttachRequestArguments extends RequestArguments {
@@ -460,13 +466,27 @@ export class GDBTargetDebugSession extends GDBDebugSession {
             await this.gdb.sendFileExecAndSymbols(args.program);
             await this.gdb.sendEnablePrettyPrint();
             if (args.imageAndSymbols) {
-                const symFiles: SymbolFileAndOffset[] = args.imageAndSymbols.symbolFilesAndOffset ?? [];
-                for (const symF of symFiles) {
-                    const offset: string = symF.offset ? symF.offset : '';
-                    await this.gdb.sendAddSymbolFile(
-                        symF.file,
-                        offset
-                    );
+                if (args.imageAndSymbols.symbolFileName) {
+                    // Depecrated
+                    if (args.imageAndSymbols.symbolOffset) {
+                        await this.gdb.sendAddSymbolFile(
+                            args.imageAndSymbols.symbolFileName,
+                            args.imageAndSymbols.symbolOffset
+                        );
+                    } else {
+                        await this.gdb.sendFileSymbolFile(
+                            args.imageAndSymbols.symbolFileName
+                        );
+                    }
+                } else {
+                    const symFiles: SymbolFileAndOffset[] = args.imageAndSymbols.symbolFilesAndOffset ?? [];
+                    for (const symF of symFiles) {
+                        const offset: string = symF.offset ? symF.offset : '';
+                        await this.gdb.sendAddSymbolFile(
+                            symF.file,
+                            offset
+                        );
+                    }
                 }
             }
 
@@ -514,12 +534,20 @@ export class GDBTargetDebugSession extends GDBDebugSession {
             }
 
             if (args.imageAndSymbols) {
-                const imgFiles: ImageFileAndOffset[] = args.imageAndSymbols.imageFilesAndOffset ?? [];
-                for (const imgF of imgFiles) {
+                if (args.imageAndSymbols.imageFileName) {
+                    // Deprecated
                     await this.gdb.sendLoad(
-                        imgF.file,
-                        imgF.offset
+                        args.imageAndSymbols.imageFileName,
+                        args.imageAndSymbols.imageOffset
                     );
+                } else {
+                    const imgFiles: ImageFileAndOffset[] = args.imageAndSymbols.imageFilesAndOffset ?? [];
+                    for (const imgF of imgFiles) {
+                        await this.gdb.sendLoad(
+                            imgF.file,
+                            imgF.offset
+                        );
+                    }
                 }
             }
             await this.gdb.sendCommands(args.preRunCommands);
